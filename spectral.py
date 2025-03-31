@@ -8,12 +8,14 @@ and computing spectral correlations.
 import numpy as np
 from typing import Tuple, Union, List, Optional, Dict, Any
 from scipy.stats import pearsonr
+from scipy import signal
 
 
 def compute_spectrum(
     series: Union[np.ndarray, List[float]],
     padding: bool = True,
     sampling_rate: float = 100.0,  # Default sampling rate for 100 points in 1 second
+    detrend: bool = True,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Compute the frequency spectrum of a time series.
@@ -26,6 +28,8 @@ def compute_spectrum(
         Whether to apply zero-padding to improve frequency resolution
     sampling_rate : float
         The sampling rate of the time series in Hz
+    detrend : bool
+        Whether to remove linear trend before spectral analysis
 
     Returns:
     --------
@@ -36,6 +40,13 @@ def compute_spectrum(
     """
     # Convert to numpy array
     data = np.array(series, dtype=float)
+    
+    # Remove NaN values
+    data = np.nan_to_num(data, nan=np.nanmean(data))
+    
+    # Apply detrending to remove linear trends that may affect spectral analysis
+    if detrend:
+        data = signal.detrend(data)
 
     # Apply zero padding if requested
     if padding:
@@ -135,3 +146,160 @@ def spectral_correlation(spec1: np.ndarray, spec2: np.ndarray, method: str = "pe
 
     else:
         raise ValueError(f"Unknown method: {method}. Use 'pearson', 'magnitude', or 'coherence'.")
+
+
+def compute_wavelet_coherence(
+    series1: Union[np.ndarray, List[float]],
+    series2: Union[np.ndarray, List[float]],
+    scales: Optional[np.ndarray] = None,
+    wavelet: str = 'morlet',
+    sampling_period: float = 1.0
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Compute wavelet coherence between two time series.
+    
+    Parameters:
+    -----------
+    series1 : array-like
+        First time series
+    series2 : array-like
+        Second time series
+    scales : array-like, optional
+        Scales for wavelet transform. If None, automatically determined
+    wavelet : str
+        Wavelet function to use
+    sampling_period : float
+        Time between samples
+        
+    Returns:
+    --------
+    wct : np.ndarray
+        Wavelet coherence (2D array, time x scale)
+    scales : np.ndarray
+        Scales used for wavelet transform
+    freqs : np.ndarray
+        Frequencies corresponding to scales
+    """
+    try:
+        import pywt
+    except ImportError:
+        raise ImportError("PyWavelets package is required for wavelet coherence analysis")
+    
+    # Convert to numpy arrays
+    s1 = np.array(series1, dtype=float)
+    s2 = np.array(series2, dtype=float)
+    
+    # Remove NaN values
+    s1 = np.nan_to_num(s1, nan=np.nanmean(s1))
+    s2 = np.nan_to_num(s2, nan=np.nanmean(s2))
+    
+    # Detrend the data
+    s1 = signal.detrend(s1)
+    s2 = signal.detrend(s2)
+    
+    # Normalize the data
+    s1 = (s1 - np.mean(s1)) / (np.std(s1) + 1e-10)
+    s2 = (s2 - np.mean(s2)) / (np.std(s2) + 1e-10)
+    
+    # Determine scales if not provided
+    if scales is None:
+        # Use dyadic scales covering from 2 samples to 1/4 of the time series length
+        min_scale = 2
+        max_scale = len(s1) // 4
+        n_scales = int(np.log2(max_scale / min_scale)) * 4 + 1  # 4 voices per octave
+        scales = np.logspace(np.log10(min_scale), np.log10(max_scale), n_scales)
+    
+    # Compute continuous wavelet transform for both series
+    coef1, freqs = pywt.cwt(s1, scales, wavelet, sampling_period)
+    coef2, _ = pywt.cwt(s2, scales, wavelet, sampling_period)
+    
+    # Compute cross-wavelet transform
+    xwt = coef1 * np.conj(coef2)
+    
+    # Compute auto-spectra
+    power1 = np.abs(coef1) ** 2
+    power2 = np.abs(coef2) ** 2
+    
+    # Smooth the spectra (simple moving average)
+    def smooth(x, window_len=5):
+        w = np.ones(window_len, 'd') / window_len
+        # Smooth along the time axis
+        return np.apply_along_axis(lambda m: np.convolve(m, w, mode='same'), axis=1, arr=x)
+    
+    power1_smooth = smooth(power1)
+    power2_smooth = smooth(power2)
+    xwt_smooth = smooth(xwt)
+    
+    # Compute wavelet coherence
+    wct = np.abs(xwt_smooth) ** 2 / (power1_smooth * power2_smooth)
+    
+    # Ensure values are in [0, 1]
+    wct = np.clip(wct, 0, 1)
+    
+    return wct, scales, freqs
+
+
+def validate_spectral_integrity(
+    original_series: Union[np.ndarray, List[float]],
+    warped_series: Union[np.ndarray, List[float]],
+    threshold: float = 0.7
+) -> Tuple[bool, float]:
+    """
+    Validate that warping has not introduced spectral artifacts.
+    
+    Parameters:
+    -----------
+    original_series : array-like
+        Original time series before warping
+    warped_series : array-like
+        Time series after warping alignment
+    threshold : float
+        Threshold for correlation between dominant frequencies
+        
+    Returns:
+    --------
+    is_valid : bool
+        True if spectral integrity is maintained
+    correlation : float
+        Correlation between dominant frequencies
+    """
+    # Extract only the most prominent frequencies
+    orig_freqs, orig_spec = compute_spectrum(original_series)
+    warp_freqs, warp_spec = compute_spectrum(warped_series)
+    
+    # Get the dominant frequencies (top 10%)
+    n_dominant = max(3, int(len(orig_freqs) * 0.1))
+    
+    orig_mag = np.abs(orig_spec)
+    warp_mag = np.abs(warp_spec)
+    
+    orig_dominant_idx = np.argsort(orig_mag)[-n_dominant:]
+    warp_dominant_idx = np.argsort(warp_mag)[-n_dominant:]
+    
+    orig_dominant_freq = orig_freqs[orig_dominant_idx]
+    warp_dominant_freq = warp_freqs[warp_dominant_idx]
+    
+    # Check if the dominant frequencies are preserved
+    # We sort them first to compare distributions rather than exact matches
+    orig_dominant_freq.sort()
+    warp_dominant_freq.sort()
+    
+    # Pad to same length if needed
+    max_len = max(len(orig_dominant_freq), len(warp_dominant_freq))
+    
+    if len(orig_dominant_freq) < max_len:
+        orig_dominant_freq = np.pad(orig_dominant_freq, (0, max_len - len(orig_dominant_freq)))
+    
+    if len(warp_dominant_freq) < max_len:
+        warp_dominant_freq = np.pad(warp_dominant_freq, (0, max_len - len(warp_dominant_freq)))
+    
+    # Compute correlation
+    if np.std(orig_dominant_freq) == 0 or np.std(warp_dominant_freq) == 0:
+        correlation = 0.0
+    else:
+        correlation, _ = pearsonr(orig_dominant_freq, warp_dominant_freq)
+    
+    # Check if correlation exceeds threshold
+    is_valid = correlation >= threshold
+    
+    return is_valid, correlation
