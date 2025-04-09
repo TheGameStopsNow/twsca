@@ -5,13 +5,21 @@ This module provides the high-level API for TWSCA, combining the Dynamic Time Wa
 and Spectral Analysis modules to detect correlations between time-warped series.
 """
 
+from typing import Any, Dict, List, Optional, Union
+
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Tuple, Optional, Union, Any
 from scipy.stats import pearsonr
 
-from dtw import dtw_distance, align_series
-from spectral import compute_spectrum, spectral_correlation
+# Support both direct and relative imports
+try:
+    # Try relative import first (for package use)
+    from .dtw import align_series, dtw_distance
+    from .spectral import compute_spectrum, spectral_correlation
+except (ImportError, ValueError):
+    # Fall back to direct import (for direct module use)
+    from dtw import align_series, dtw_distance
+    from spectral import compute_spectrum, spectral_correlation
 
 
 def compute_twsca(
@@ -65,13 +73,13 @@ def compute_twsca(
         # Both series are constant, check if they are proportional
         if np.mean(aligned_s1) == 0 and np.mean(aligned_s2) == 0:
             time_corr = 1.0  # Both series are zero
-            spec_corr = 1.0  # Spectral correlation should be 1.0 for identical zero-mean series
+            spec_corr = 1.0  # Spectral correlation for identical zero-mean series
         else:
             time_corr = 1.0  # Both series are constant and proportional
-            spec_corr = 1.0  # Spectral correlation should be 1.0 for proportional constant series
+            spec_corr = 1.0  # Spectral correlation for proportional constant series
     elif np.std(aligned_s1) == 0 or np.std(aligned_s2) == 0:
         time_corr = 0.0  # One series is constant, the other is not
-        spec_corr = 0.0  # Spectral correlation should be 0.0 when one series is constant
+        spec_corr = 0.0  # Spectral correlation when one series is constant
     else:
         time_corr, _ = pearsonr(aligned_s1, aligned_s2)
         # Compute spectra of aligned series

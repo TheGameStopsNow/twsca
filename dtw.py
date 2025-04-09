@@ -5,8 +5,9 @@ This module provides functionality for aligning time series using
 Dynamic Time Warping (DTW) algorithm.
 """
 
+from typing import List, Optional, Tuple, Union
+
 import numpy as np
-from typing import Tuple, Union, List, Optional, Dict, Any
 
 
 def dtw_distance(
@@ -30,7 +31,7 @@ def dtw_distance(
     adaptive_window : bool
         Whether to adjust the window size based on time series volatility
     volatility_scaling : float
-        Scaling factor for the adaptive window (higher values allow more warping in volatile regions)
+        Scaling factor for adaptive window (higher values allow more warping)
 
     Returns:
     --------
@@ -57,24 +58,24 @@ def dtw_distance(
     # Set window size if not provided
     if window is None:
         window = max(n, m)
-    
+
     # Calculate volatility if adaptive window is enabled
     if adaptive_window:
         # Calculate rolling standard deviation as a measure of volatility
         s1_volatility = np.zeros(n)
         s2_volatility = np.zeros(m)
-        
+
         # Use a rolling window of 5 or 10% of series length, whichever is larger
         vol_window = max(5, int(min(n, m) * 0.1))
-        
+
         for i in range(n):
             start_idx = max(0, i - vol_window)
-            s1_volatility[i] = np.std(s1[start_idx:i+1])
-            
+            s1_volatility[i] = np.std(s1[start_idx : i + 1])
+
         for i in range(m):
             start_idx = max(0, i - vol_window)
-            s2_volatility[i] = np.std(s2[start_idx:i+1])
-        
+            s2_volatility[i] = np.std(s2[start_idx : i + 1])
+
         # Normalize volatility to [0, 1] range
         if np.max(s1_volatility) > 0:
             s1_volatility = s1_volatility / np.max(s1_volatility)
@@ -86,7 +87,7 @@ def dtw_distance(
         # Apply window constraint, potentially adapting based on volatility
         if adaptive_window and i > 1 and i <= n:
             # Adjust window based on local volatility - more volatile = larger window
-            local_volatility = s1_volatility[i-1]
+            local_volatility = s1_volatility[i - 1]
             # Scale the window by volatility and the scaling factor
             local_window = int(window * (1 + local_volatility * volatility_scaling))
             window_start = max(1, i - local_window)
@@ -137,7 +138,11 @@ def _get_path(cost_matrix: np.ndarray) -> np.ndarray:
             i -= 1
         else:
             min_cost_idx = np.argmin(
-                [cost_matrix[i - 1, j - 1], cost_matrix[i - 1, j], cost_matrix[i, j - 1]]
+                [
+                    cost_matrix[i - 1, j - 1],
+                    cost_matrix[i - 1, j],
+                    cost_matrix[i, j - 1],
+                ]
             )
 
             if min_cost_idx == 0:
@@ -199,13 +204,25 @@ def align_series(
         # Create a uniform time index
         orig_indices = np.arange(len(aligned_s1))
         uniform_indices = np.linspace(0, len(aligned_s1) - 1, len(aligned_s1))
-        
+
         # Interpolate to create uniformly sampled series
         from scipy.interpolate import interp1d
-        
-        f1 = interp1d(orig_indices, aligned_s1, kind='linear', bounds_error=False, fill_value='extrapolate')
-        f2 = interp1d(orig_indices, aligned_s2, kind='linear', bounds_error=False, fill_value='extrapolate')
-        
+
+        f1 = interp1d(
+            orig_indices,
+            aligned_s1,
+            kind="linear",
+            bounds_error=False,
+            fill_value="extrapolate",
+        )
+        f2 = interp1d(
+            orig_indices,
+            aligned_s2,
+            kind="linear",
+            bounds_error=False,
+            fill_value="extrapolate",
+        )
+
         aligned_s1 = f1(uniform_indices)
         aligned_s2 = f2(uniform_indices)
 

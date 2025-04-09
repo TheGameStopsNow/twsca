@@ -7,14 +7,15 @@ to detect hidden correlations between different meme stocks. It compares movemen
 across specified meme stocks and generates visualizations showing their relationships.
 """
 
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-from datetime import datetime, timedelta
+import argparse
 import os
 import sys
-import argparse
+from datetime import datetime, timedelta
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
 import yfinance as yf
 
 # Add parent directory to path for local development
@@ -55,7 +56,9 @@ def fetch_stock_data(symbols, start_date=None, end_date=None, interval="1d"):
 
     for symbol in symbols:
         try:
-            data = yf.download(symbol, start=start_date, end=end_date, interval=interval)
+            data = yf.download(
+                symbol, start=start_date, end=end_date, interval=interval
+            )
             if len(data) > 20:  # Ensure we have enough data
                 stock_data[symbol] = data
                 print(f"Downloaded {len(data)} rows for {symbol}")
@@ -299,7 +302,9 @@ def create_detailed_comparison(stock_data, symbol1, symbol2, output_file=None):
     # Print analysis summary
     print("\nAnalysis Summary:")
     print(f"Standard correlation: {std_corr:.4f}")
-    print(f"Time-domain correlation (DTW): {twsca_result['time_domain_correlation']:.4f}")
+    print(
+        f"Time-domain correlation (DTW): {twsca_result['time_domain_correlation']:.4f}"
+    )
     print(f"Spectral correlation: {twsca_result['spectral_correlation']:.4f}")
 
     # Interpretation
@@ -334,7 +339,9 @@ def main():
         action="store_true",
         help="Also create standard correlation heatmap for comparison",
     )
-    parser.add_argument("--output-dir", default=".", help="Directory to save output files")
+    parser.add_argument(
+        "--output-dir", default=".", help="Directory to save output files"
+    )
 
     args = parser.parse_args()
 

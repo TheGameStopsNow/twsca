@@ -2,17 +2,20 @@
 Tests for the TWSCA package
 """
 
-import numpy as np
-import pandas as pd
-import pytest
-from twsca import (
-    compute_twsca,
-    dtw_distance,
-    align_series,
-    compute_spectrum,
-    spectral_correlation,
-    compute_twsca_matrix,
-)
+import os
+import sys
+
+# Add the parent directory to the path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
+import pytest  # noqa: E402
+
+# Import directly from modules rather than through package
+from analysis import compute_twsca, compute_twsca_matrix  # noqa: E402
+from dtw import align_series, dtw_distance  # noqa: E402
+from spectral import compute_spectrum, spectral_correlation  # noqa: E402
 
 
 def test_dtw_distance_identical_series():
@@ -90,14 +93,18 @@ def test_compute_spectrum():
     t = np.linspace(0, 1, 100)
     s = np.sin(2 * np.pi * 5 * t)  # 5 Hz sine wave
 
-    freqs, spectrum = compute_spectrum(s, padding=True, sampling_rate=100)  # 100 samples per second
+    freqs, spectrum = compute_spectrum(
+        s, padding=True, sampling_rate=100
+    )  # 100 samples per second
 
     # Find the dominant frequency
     dominant_freq_idx = np.argmax(np.abs(spectrum))
     dominant_freq = freqs[dominant_freq_idx]
 
     # Should be close to 5 Hz (accounting for bin size)
-    assert np.isclose(abs(dominant_freq), 5.0, atol=0.5)  # Increase tolerance due to FFT bin size
+    assert np.isclose(
+        abs(dominant_freq), 5.0, atol=0.5
+    )  # Increase tolerance due to FFT bin size
 
 
 def test_spectral_correlation():
@@ -232,7 +239,9 @@ def test_compute_twsca_matrix():
 
     # Check constant series correlation
     # Correlation with constant series should be 0 except for self-correlation
-    assert corr_matrix.loc["constant", "constant"] == 1.0  # Self-correlation should be 1.0
+    assert (
+        corr_matrix.loc["constant", "constant"] == 1.0
+    )  # Self-correlation should be 1.0
     assert np.all(
         corr_matrix.loc["constant", ["series1", "series2", "series3"]] == 0.0
     )  # Correlation with non-constant series should be 0
@@ -246,7 +255,9 @@ def test_compute_twsca_edge_cases():
     # Test with constant series
     s1 = np.ones(100)
     s2 = np.ones(100)
-    result = compute_twsca(s1, s2, detrend=False)  # Disable detrending for constant series
+    result = compute_twsca(
+        s1, s2, detrend=False
+    )  # Disable detrending for constant series
     assert (
         result["time_domain_correlation"] == 1.0
     )  # Identical constant series should have correlation 1.0
@@ -257,7 +268,9 @@ def test_compute_twsca_edge_cases():
     # Test with different constant series
     s1 = np.ones(100)
     s2 = np.ones(100) * 2
-    result = compute_twsca(s1, s2, detrend=False)  # Disable detrending for constant series
+    result = compute_twsca(
+        s1, s2, detrend=False
+    )  # Disable detrending for constant series
     assert (
         result["time_domain_correlation"] == 1.0
     )  # Different constant series should have correlation 1.0
@@ -268,7 +281,9 @@ def test_compute_twsca_edge_cases():
     # Test with zero-mean constant series
     s1 = np.zeros(100)
     s2 = np.zeros(100)
-    result = compute_twsca(s1, s2, detrend=False)  # Disable detrending for constant series
+    result = compute_twsca(
+        s1, s2, detrend=False
+    )  # Disable detrending for constant series
     assert (
         result["time_domain_correlation"] == 1.0
     )  # Zero-mean constant series should have correlation 1.0
@@ -330,5 +345,7 @@ def test_dtw_edge_cases():
     s1 = np.array([1, 2, 3, 4, 5])
     s2 = np.array([1, 2, 3, 4, 5])
     distance, path = dtw_distance(s1, s2, window=2)
-    assert distance == 0  # DTW distance should be 0 for identical sequences with window constraint
+    assert (
+        distance == 0
+    )  # DTW distance should be 0 for identical sequences with window constraint
     assert len(path) > 0  # Path should not be empty

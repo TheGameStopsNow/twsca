@@ -17,7 +17,7 @@ import numpy as np
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # Import TWSCA
-from analysis import compute_twsca
+from twsca import compute_twsca
 
 
 def generate_sine_waves(n_points=100, phase_shift=0, time_warp=False):
@@ -56,9 +56,7 @@ def generate_sine_waves(n_points=100, phase_shift=0, time_warp=False):
     return t, signal1, signal2
 
 
-def plot_signals_and_analysis(
-    t, signal1, signal2, twsca_result, title=None, output_file=None
-):
+def plot_signals_and_analysis(t, signal1, signal2, twsca_result, title=None, output_file=None):
     """
     Plot signals and TWSCA analysis results
 
@@ -88,12 +86,8 @@ def plot_signals_and_analysis(
 
     # Plot aligned signals
     aligned_t = np.arange(len(twsca_result["aligned_series1"]))
-    axes[0, 1].plot(
-        aligned_t, twsca_result["aligned_series1"], label="Signal 1 (aligned)"
-    )
-    axes[0, 1].plot(
-        aligned_t, twsca_result["aligned_series2"], label="Signal 2 (aligned)"
-    )
+    axes[0, 1].plot(aligned_t, twsca_result["aligned_series1"], label="Signal 1 (aligned)")
+    axes[0, 1].plot(aligned_t, twsca_result["aligned_series2"], label="Signal 2 (aligned)")
     axes[0, 1].set_title(
         f'Time-Warped Aligned Signals (Corr: {twsca_result["time_domain_correlation"]:.4f})'
     )
@@ -111,9 +105,7 @@ def plot_signals_and_analysis(
 
         # Add diagonal line for reference
         path_max = max(warping_path[:, 0].max(), warping_path[:, 1].max())
-        axes[1, 0].plot(
-            [0, path_max], [0, path_max], "r--", alpha=0.5, label="No warping"
-        )
+        axes[1, 0].plot([0, path_max], [0, path_max], "r--", alpha=0.5, label="No warping")
         axes[1, 0].legend()
 
     # Plot correlation scatter
@@ -144,22 +136,15 @@ def plot_signals_and_analysis(
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Demonstrate TWSCA with synthetic data"
-    )
+    parser = argparse.ArgumentParser(description="Demonstrate TWSCA with synthetic data")
     parser.add_argument(
         "--points", type=int, default=100, help="Number of points in the time series"
     )
     parser.add_argument(
-        "--phase",
-        type=float,
-        default=1.0,
-        help="Phase shift between the two signals (in radians)",
+        "--phase", type=float, default=1.0, help="Phase shift between the two signals (in radians)"
     )
     parser.add_argument(
-        "--warp",
-        action="store_true",
-        help="Apply non-linear time warping to the second signal",
+        "--warp", action="store_true", help="Apply non-linear time warping to the second signal"
     )
     parser.add_argument("--output", default=None, help="Output file to save the plot")
 
@@ -175,9 +160,7 @@ def main():
 
     # Print results
     print("\nTWSCA Results:")
-    print(
-        f"Time-domain correlation (DTW): {twsca_result['time_domain_correlation']:.4f}"
-    )
+    print(f"Time-domain correlation (DTW): {twsca_result['time_domain_correlation']:.4f}")
     print(f"Spectral correlation: {twsca_result['spectral_correlation']:.4f}")
     print(f"DTW distance: {twsca_result['dtw_distance']:.4f}")
 
