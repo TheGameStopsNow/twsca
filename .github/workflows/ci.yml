@@ -27,7 +27,6 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -e ".[dev,test]"
-        python setup.py develop  # Install in development mode to ensure correct imports
     
     - name: Run tests with coverage
       run: |

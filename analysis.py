@@ -5,21 +5,14 @@ This module provides the high-level API for TWSCA, combining the Dynamic Time Wa
 and Spectral Analysis modules to detect correlations between time-warped series.
 """
 
-from typing import Any, Dict, List, Optional, Union
-
 import numpy as np
 import pandas as pd
+from typing import Dict, List, Optional, Union, Any
 from scipy.stats import pearsonr
 
-# Support both direct and relative imports
-try:
-    # Try relative import first (for package use)
-    from .dtw import align_series, dtw_distance
-    from .spectral import compute_spectrum, spectral_correlation
-except (ImportError, ValueError):
-    # Fall back to direct import (for direct module use)
-    from dtw import align_series, dtw_distance
-    from spectral import compute_spectrum, spectral_correlation
+# Use relative imports for modules within the package
+from .dtw import dtw_distance, align_series
+from .spectral import compute_spectrum, spectral_correlation
 
 
 def compute_twsca(
