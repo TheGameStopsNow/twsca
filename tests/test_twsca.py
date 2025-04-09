@@ -12,15 +12,10 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import pytest  # noqa: E402
 
-# Import from the installed package
-from twsca import (
-    compute_twsca,
-    dtw_distance,
-    align_series,
-    compute_spectrum,
-    spectral_correlation,
-    compute_twsca_matrix,
-)
+# Import functions directly from the modules
+from analysis import compute_twsca, compute_twsca_matrix  # noqa: E402
+from dtw import dtw_distance, align_series  # noqa: E402
+from spectral import compute_spectrum, spectral_correlation  # noqa: E402
 
 
 def test_dtw_distance_identical_series():
