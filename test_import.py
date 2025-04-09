@@ -19,7 +19,7 @@ try:
 
     # Now attempt to import specific functions (imported but used for testing)
     from analysis import compute_twsca, compute_twsca_matrix  # noqa: F401
-    from dtw import dtw_distance, align_series  # noqa: F401
+    from dtw import align_series, dtw_distance  # noqa: F401
     from spectral import compute_spectrum, spectral_correlation  # noqa: F401
 
     print("Individual modules imported successfully!")
