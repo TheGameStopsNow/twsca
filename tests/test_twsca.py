@@ -14,7 +14,7 @@ import pytest  # noqa: E402
 
 # Import functions directly from the modules
 from analysis import compute_twsca, compute_twsca_matrix  # noqa: E402
-from dtw import dtw_distance, align_series  # noqa: E402
+from dtw import align_series, dtw_distance  # noqa: E402
 from spectral import compute_spectrum, spectral_correlation  # noqa: E402
 
 
