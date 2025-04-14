@@ -1,29 +1,32 @@
 """
-Time-Warped Spectral Correlation Analysis (TWSCA) Package
+Time-Warped Spectral Correlation Analysis (TWSCA)
 
-This package provides functionality for detecting correlations between time series
-that may be misaligned in time or have nonlinear temporal distortions.
+A package for analyzing correlations between time series that may be misaligned in time
+or have different speeds, combining dynamic time warping (DTW) with spectral analysis.
 """
 
-__version__ = "0.1.0"
-
-# Use relative imports for modules within the package
 from .analysis import compute_twsca, compute_twsca_matrix
-from .dtw import align_series, dtw_distance
-from .spectral import (
-    compute_spectrum,
-    compute_wavelet_coherence,
-    spectral_correlation,
-    validate_spectral_integrity,
-)
+from .smoothing import llt_filter, savitzky_golay, adaptive_smoothing
+from .dtw import dtw_distance, align_series
+from .spectral import compute_spectrum, spectral_correlation
+from .utils import normalize_series, validate_time_series
+from .config import get_config, set_config, reset_config
+from .cli import main as cli_main
 
 __all__ = [
-    "compute_twsca",
-    "compute_twsca_matrix",
-    "dtw_distance",
-    "align_series",
-    "compute_spectrum",
-    "spectral_correlation",
-    "compute_wavelet_coherence",
-    "validate_spectral_integrity",
-]
+    'compute_twsca',
+    'compute_twsca_matrix',
+    'llt_filter',
+    'savitzky_golay',
+    'adaptive_smoothing',
+    'dtw_distance',
+    'align_series',
+    'compute_spectrum',
+    'spectral_correlation',
+    'normalize_series',
+    'validate_time_series',
+    'get_config',
+    'set_config',
+    'reset_config',
+    'cli_main',
+] 

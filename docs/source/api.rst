@@ -16,6 +16,9 @@ compute_twsca
    :param int window_size: Size of the sliding window for spectral analysis (optional)
    :param int dtw_radius: Radius for DTW computation (optional)
    :param bool normalize: Whether to normalize the input series (optional)
+   :param bool use_llt: Whether to apply LLT filtering to smooth the signals. Default is True.
+   :param float llt_sigma: Standard deviation parameter for LLT filter (default=1.0, only used if use_llt=True)
+   :param float llt_alpha: Smoothing parameter for LLT filter (default=0.5, only used if use_llt=True)
    :return: Dictionary containing analysis results
    :rtype: dict
 

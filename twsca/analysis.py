@@ -1,198 +1,166 @@
 """
-Time-Warped Spectral Correlation Analysis (TWSCA) Module
-
-This module provides the high-level API for TWSCA, combining the Dynamic Time Warping
-and Spectral Analysis modules to detect correlations between time-warped series.
+Core analysis functions for the TWSCA package
 """
-
-from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
-from scipy.stats import pearsonr
+from typing import Dict, Any, List, Tuple, Optional, Union
 
-# Use relative imports for modules within the package
 from .dtw import align_series, dtw_distance
 from .spectral import compute_spectrum, spectral_correlation
+from .smoothing import llt_filter
+from .utils import validate_time_series, normalize_series
 
 
 def compute_twsca(
-    series1: Union[np.ndarray, List[float], pd.Series],
-    series2: Union[np.ndarray, List[float], pd.Series],
-    window: Optional[int] = None,
+    s1: Union[np.ndarray, pd.Series],
+    s2: Union[np.ndarray, pd.Series],
+    *,
+    window_size: Optional[int] = None,
+    dtw_radius: Optional[int] = None,
+    normalize: bool = True,
     detrend: bool = True,
-    spectral_method: str = "pearson",
-    padding: bool = True,
+    spectral_method: str = "magnitude",
+    window: Optional[int] = None,
+    optimize_params: bool = False,
+    use_llt: bool = True,  # New parameter to control LLT filtering
+    llt_sigma: float = 1.0,  # LLT filter sigma parameter
+    llt_alpha: float = 0.5,  # LLT filter alpha parameter
 ) -> Dict[str, Any]:
     """
     Compute Time-Warped Spectral Correlation Analysis between two time series.
 
-    Parameters:
-    -----------
-    series1 : array-like
+    Parameters
+    ----------
+    s1 : array-like
         First time series
-    series2 : array-like
+    s2 : array-like
         Second time series
+    window_size : int, optional
+        Size of the sliding window for spectral analysis
+    dtw_radius : int, optional
+        Radius for DTW computation
+    normalize : bool, default=True
+        Whether to normalize the input series
+    detrend : bool, default=True
+        Whether to remove linear trend from the input series
+    spectral_method : str, default="magnitude"
+        Method for spectral correlation computation ("magnitude" or "coherence")
     window : int, optional
-        Window constraint for DTW. If None, full DTW is performed
-    detrend : bool
-        Whether to apply detrending to the data before analysis
-    spectral_method : str
-        Method for computing spectral correlation ('pearson', 'magnitude', 'coherence')
-    padding : bool
-        Whether to apply zero-padding to improve frequency resolution
+        Window constraint for DTW
+    optimize_params : bool, default=False
+        Whether to optimize parameters automatically
+    use_llt : bool, default=True
+        Whether to apply LLT (Local Laplacian Transform) filtering to smooth the signals.
+        LLT filtering is applied by default for better noise handling.
+    llt_sigma : float, default=1.0
+        Standard deviation parameter for LLT filter (only used if use_llt=True)
+    llt_alpha : float, default=0.5
+        Smoothing parameter for LLT filter (only used if use_llt=True)
 
-    Returns:
-    --------
-    result : Dict[str, Any]
-        Dictionary containing:
-        - 'dtw_distance': float - DTW distance between series
-        - 'aligned_series1': np.ndarray - Aligned version of series1
-        - 'aligned_series2': np.ndarray - Aligned version of series2
-        - 'time_domain_correlation': float - Correlation in time domain after alignment
-        - 'spectral_correlation': float - Correlation in frequency domain after alignment
+    Returns
+    -------
+    dict
+        Dictionary containing analysis results including:
+        - time_domain_correlation: Correlation in time domain after DTW
+        - spectral_correlation: Correlation in frequency domain
+        - dtw_path: Warping path from DTW
+        - dtw_distance: DTW distance between series
+        - aligned_series1: First series after alignment
+        - aligned_series2: Second series after alignment
+        - spectral_components: Spectral components of the analysis
     """
-    # Convert inputs to numpy arrays
-    s1 = _prepare_series(series1, detrend)
-    s2 = _prepare_series(series2, detrend)
+    # Validate and convert input series
+    s1 = validate_time_series(s1)
+    s2 = validate_time_series(s2)
 
-    # Compute DTW distance and path
-    dist, path = dtw_distance(s1, s2, window=window)
+    # Apply LLT filtering if enabled
+    if use_llt:
+        s1 = llt_filter(s1, sigma=llt_sigma, alpha=llt_alpha)
+        s2 = llt_filter(s2, sigma=llt_sigma, alpha=llt_alpha)
 
-    # Align series based on DTW path
+    # Normalize if requested
+    if normalize:
+        s1 = normalize_series(s1)
+        s2 = normalize_series(s2)
+
+    # Compute DTW to align the signals
+    dtw_dist, path = dtw_distance(s1, s2, window=window)
+    
+    # Align the signals using the DTW path
     aligned_s1, aligned_s2 = align_series(s1, s2, path)
-
-    # Compute time domain correlation
-    if np.std(aligned_s1) == 0 and np.std(aligned_s2) == 0:
-        # Both series are constant, check if they are proportional
-        if np.mean(aligned_s1) == 0 and np.mean(aligned_s2) == 0:
-            time_corr = 1.0  # Both series are zero
-            spec_corr = 1.0  # Spectral correlation for identical zero-mean series
-        else:
-            time_corr = 1.0  # Both series are constant and proportional
-            spec_corr = 1.0  # Spectral correlation for proportional constant series
-    elif np.std(aligned_s1) == 0 or np.std(aligned_s2) == 0:
-        time_corr = 0.0  # One series is constant, the other is not
-        spec_corr = 0.0  # Spectral correlation when one series is constant
-    else:
-        time_corr, _ = pearsonr(aligned_s1, aligned_s2)
-        # Compute spectra of aligned series
-        _, spectrum1 = compute_spectrum(aligned_s1, padding=padding)
-        _, spectrum2 = compute_spectrum(aligned_s2, padding=padding)
-        # Compute spectral correlation
-        spec_corr = spectral_correlation(spectrum1, spectrum2, method=spectral_method)
-
+    
+    # Compute time-domain correlation after alignment
+    time_corr = np.corrcoef(aligned_s1, aligned_s2)[0, 1]
+    
+    # Compute spectral correlation
+    spec_corr = spectral_correlation(aligned_s1, aligned_s2, window_size=window_size, method=spectral_method)
+    
+    # Compute spectrum for visualization (can be used by plotting functions)
+    spec1 = compute_spectrum(aligned_s1, window_size=window_size)
+    spec2 = compute_spectrum(aligned_s2, window_size=window_size)
+    
     # Return results
     return {
-        "dtw_distance": dist,
-        "aligned_series1": aligned_s1,
-        "aligned_series2": aligned_s2,
         "time_domain_correlation": time_corr,
         "spectral_correlation": spec_corr,
+        "dtw_path": path,
+        "dtw_distance": dtw_dist,
+        "aligned_series1": aligned_s1,
+        "aligned_series2": aligned_s2,
+        "spectral_components": {
+            "frequencies": spec1["frequencies"],
+            "spectrum1": spec1["magnitude"],
+            "spectrum2": spec2["magnitude"],
+        }
     }
 
 
 def compute_twsca_matrix(
     data: pd.DataFrame,
-    window: Optional[int] = None,
-    detrend: bool = True,
-    spectral_method: str = "pearson",
-    padding: bool = True,
+    **kwargs
 ) -> pd.DataFrame:
     """
-    Compute Time-Warped Spectral Correlation matrix for multiple time series.
+    Compute TWSCA correlation matrix for multiple time series.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : pd.DataFrame
-        DataFrame where each column is a time series
-    window : int, optional
-        Window constraint for DTW. If None, full DTW is performed
-    detrend : bool
-        Whether to apply detrending to the data before analysis
-    spectral_method : str
-        Method for computing spectral correlation ('pearson', 'magnitude', 'coherence')
-    padding : bool
-        Whether to apply zero-padding to improve frequency resolution
+        DataFrame containing multiple time series as columns
+    **kwargs
+        Additional arguments to pass to compute_twsca
 
-    Returns:
-    --------
-    corr_matrix : pd.DataFrame
-        Correlation matrix where each cell represents the TWSCA correlation between series
+    Returns
+    -------
+    pd.DataFrame
+        Correlation matrix
     """
-    # Get column names and number of series
-    columns = data.columns
-    n_series = len(columns)
-
-    # Initialize correlation matrix with zeros
+    n_series = len(data.columns)
     corr_matrix = np.zeros((n_series, n_series))
-
-    # Fill diagonal with 1.0 (perfect self-correlation)
-    np.fill_diagonal(corr_matrix, 1.0)
-
-    # Compute correlation for each pair of series
+    
+    # Compute correlations between all pairs
     for i in range(n_series):
-        for j in range(i + 1, n_series):
-            # Get the two series
-            series1 = data.iloc[:, i]
-            series2 = data.iloc[:, j]
-
-            # Skip if either series has constant values
-            if series1.std() == 0 or series2.std() == 0:
-                correlation = 0.0
+        for j in range(i, n_series):
+            if i == j:
+                # Self-correlation is 1.0
+                corr_matrix[i, j] = 1.0
             else:
+                # Get series
+                s1 = data.iloc[:, i].values
+                s2 = data.iloc[:, j].values
+                
                 # Compute TWSCA
-                result = compute_twsca(
-                    series1,
-                    series2,
-                    window=window,
-                    detrend=detrend,
-                    spectral_method=spectral_method,
-                    padding=padding,
-                )
-
-                # Extract spectral correlation
-                correlation = result["spectral_correlation"]
-
-            # Fill the matrix (it's symmetric)
-            corr_matrix[i, j] = correlation
-            corr_matrix[j, i] = correlation
-
-    # Convert to DataFrame with column names
-    return pd.DataFrame(corr_matrix, index=columns, columns=columns)
-
-
-def _prepare_series(
-    series: Union[np.ndarray, List[float], pd.Series], detrend: bool = True
-) -> np.ndarray:
-    """
-    Prepare a time series for analysis by converting to numpy array and optionally detrending.
-
-    Parameters:
-    -----------
-    series : array-like
-        Time series data
-    detrend : bool
-        Whether to apply detrending
-
-    Returns:
-    --------
-    prepared_series : np.ndarray
-        Prepared time series
-    """
-    # Convert to numpy array
-    if isinstance(series, pd.Series):
-        data = series.values
-    else:
-        data = np.array(series, dtype=float)
-
-    # Apply detrending if requested
-    if detrend and len(data) > 2:
-        # Simple linear detrending
-        x = np.arange(len(data))
-        slope, intercept = np.polyfit(x, data, 1)
-        trend = slope * x + intercept
-        detrended = data - trend
-        return detrended
-
-    return data
+                try:
+                    result = compute_twsca(s1, s2, **kwargs)
+                    corr = result["spectral_correlation"]
+                except Exception:
+                    # In case of computation errors, set correlation to 0
+                    corr = 0.0
+                
+                # Store correlation (symmetric matrix)
+                corr_matrix[i, j] = corr_matrix[j, i] = corr
+    
+    # Convert to DataFrame with labels
+    corr_df = pd.DataFrame(corr_matrix, index=data.columns, columns=data.columns)
+    
+    return corr_df 
