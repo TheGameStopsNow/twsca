@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "twsca"
-version = "0.1.0"
+version = "0.1.1"
 description = "Time-Warped Spectral Correlation Analysis for Financial Market Data"
 authors = [
     { name = "Dennis Nedry", email = "vines_woofers.0j@icloud.com" }
