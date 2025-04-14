@@ -13,12 +13,16 @@ TWSCA is a Python package for analyzing correlations between time series that ma
 
 ## Installation
 
-```bash
-# Install from GitHub
-pip install git+https://github.com/TheGameStopsNow/twsca.git
+Install the latest stable release from PyPI:
 
-# Or install with development dependencies
-pip install -e "git+https://github.com/TheGameStopsNow/twsca.git#egg=twsca[dev]"
+```bash
+pip install twsca
+```
+
+Alternatively, install directly from GitHub for the latest development version:
+
+```bash
+pip install git+https://github.com/TheGameStopsNow/twsca.git
 ```
 
 ## Quick Start
